@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animation Production Master Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body { 
+            margin: 0; 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0f0f0f;
+            color: #e0e0e0;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        .progress-ring {
+            transform: rotate(-90deg);
+        }
+        .capacity-bar {
+            transition: all 0.5s ease;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 30px;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 8px;
+            top: 8px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #3b82f6;
+        }
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            left: 11px;
+            top: 16px;
+            width: 2px;
+            height: calc(100% - 8px);
+            background: rgba(59, 130, 246, 0.3);
+        }
+        .timeline-item:last-child::after {
+            display: none;
+        }
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .status-on-track { background: #10b981; }
+        .status-at-risk { background: #f59e0b; }
+        .status-delayed { background: #ef4444; }
+        .status-complete { background: #8b5cf6; }
+        
+        .project-series { border-left: 4px solid #3b82f6; }
+        .project-short { border-left: 4px solid #10b981; }
+        .project-movie { border-left: 4px solid #f59e0b; }
+        
+        .resource-chart {
+            height: 200px;
+            margin: 20px 0;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .alert-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        .gantt-bar {
+            position: absolute;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            padding: 0 8px;
+            font-size: 12px;
+            color: white;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+        
+        .gantt-bar:hover {
+            transform: scaleY(1.1);
+            z-index: 10;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metric-trend {
+            font-size: 0.75rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .trend-up { color: #10b981; }
+        .trend-down { color: #ef4444; }
+        .trend-neutral { color: #6b7280; }
+    </style>
+</head>
+<body>
+    <div class="min-h-screen p-6">
+        <!-- Header -->
+        <div class="max-w-7xl mx-auto mb-8">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h1 class="text-4xl font-bold text-white mb-2">Animation Production Master Dashboard</h1>
+                    <p class="text-gray-400">Real-time monitoring across all active productions</p>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-500">Last Updated</p>
+                    <p class="text-white font-mono" id="currentTime">--:--</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Critical Alerts -->
+        <div id="alertsSection" class="max-w-7xl mx-auto mb-6" style="display: none;">
+            <div class="glass-card rounded-lg p-4 border-red-500 border-l-4">
+                <h3 class="text-lg font-semibold text-red-400 mb-2">⚠️ Critical Alerts</h3>
+                <div id="alertsList" class="space-y-2">
+                    <!-- Alerts will be inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Production Overview Cards -->
+        <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Series Card -->
+            <div class="glass-card rounded-xl p-6 project-series">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Animated Series</h3>
+                        <p class="text-sm text-gray-400">12 Episodes × 22 min</p>
+                    </div>
+                    <span class="status-indicator status-on-track"></span>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Overall Progress</span>
+                            <span class="font-mono">42%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-blue-500 h-2 rounded-full" style="width: 42%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-400">Budget Used</p>
+                            <p class="text-xl font-bold">$2.1M</p>
+                            <p class="text-xs text-gray-500">of $5M</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">Days to Deadline</p>
+                            <p class="text-xl font-bold">142</p>
+                            <p class="text-xs text-gray-500">On Schedule</p>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-700">
+                        <p class="text-sm text-gray-400 mb-2">Current Phase</p>
+                        <p class="font-semibold">Animation - Episode 4-6</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Short Film Card -->
+            <div class="glass-card rounded-xl p-6 project-short">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Short Film</h3>
+                        <p class="text-sm text-gray-400">15 min runtime</p>
+                    </div>
+                    <span class="status-indicator status-at-risk"></span>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Overall Progress</span>
+                            <span class="font-mono">78%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-green-500 h-2 rounded-full" style="width: 78%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-400">Budget Used</p>
+                            <p class="text-xl font-bold">$485K</p>
+                            <p class="text-xs text-gray-500">of $500K</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">Days to Deadline</p>
+                            <p class="text-xl font-bold text-yellow-500">21</p>
+                            <p class="text-xs text-yellow-500">At Risk</p>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-700">
+                        <p class="text-sm text-gray-400 mb-2">Current Phase</p>
+                        <p class="font-semibold">Post-Production</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature Film Card -->
+            <div class="glass-card rounded-xl p-6 project-movie">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold text-white">Feature Film</h3>
+                        <p class="text-sm text-gray-400">90 min runtime</p>
+                    </div>
+                    <span class="status-indicator status-on-track"></span>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-sm mb-1">
+                            <span>Overall Progress</span>
+                            <span class="font-mono">15%</span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div class="bg-yellow-500 h-2 rounded-full" style="width: 15%"></div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <p class="text-gray-400">Budget Used</p>
+                            <p class="text-xl font-bold">$3.2M</p>
+                            <p class="text-xs text-gray-500">of $25M</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-400">Days to Deadline</p>
+                            <p class="text-xl font-bold">487</p>
+                            <p class="text-xs text-gray-500">On Schedule</p>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4 border-t border-gray-700">
+                        <p class="text-sm text-gray-400 mb-2">Current Phase</p>
+                        <p class="font-semibold">Pre-Production</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resource Capacity Section -->
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <!-- Team Capacity -->
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-bold text-white mb-4">Team Capacity Overview</h3>
+                <div class="space-y-4">
+                    <div class="capacity-item">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm">Animation Team</span>
+                            <span class="text-sm font-mono">85% <span class="metric-trend trend-up">↑ 5%</span></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="capacity-bar bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full" style="width: 85%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">17 of 20 animators allocated</p>
+                    </div>
+                    
+                    <div class="capacity-item">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm">Storyboard Artists</span>
+                            <span class="text-sm font-mono text-yellow-500">95% <span class="metric-trend trend-up">↑ 12%</span></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="capacity-bar bg-gradient-to-r from-yellow-500 to-yellow-600 h-3 rounded-full alert-pulse" style="width: 95%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">19 of 20 artists allocated - Near capacity!</p>
+                    </div>
+                    
+                    <div class="capacity-item">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm">Character Designers</span>
+                            <span class="text-sm font-mono">60% <span class="metric-trend trend-neutral">→ 0%</span></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="capacity-bar bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full" style="width: 60%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">6 of 10 designers allocated</p>
+                    </div>
+                    
+                    <div class="capacity-item">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm">Background Artists</span>
+                            <span class="text-sm font-mono">70% <span class="metric-trend trend-down">↓ 3%</span></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="capacity-bar bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full" style="width: 70%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">7 of 10 artists allocated</p>
+                    </div>
+                    
+                    <div class="capacity-item">
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm">Compositing Team</span>
+                            <span class="text-sm font-mono">45% <span class="metric-trend trend-down">↓ 15%</span></span>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-3">
+                            <div class="capacity-bar bg-gradient-to-r from-pink-500 to-pink-600 h-3 rounded-full" style="width: 45%"></div>
+                        </div>
+                        <p class="text-xs text-gray-400 mt-1">9 of 20 compositors allocated</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upcoming Milestones -->
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-bold text-white mb-4">Upcoming Milestones</h3>
+                <div class="space-y-3 max-h-64 overflow-y-auto">
+                    <div class="timeline-item">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-yellow-400">Short Film: Final Render</p>
+                                <p class="text-sm text-gray-400">Complete all VFX and final output</p>
+                            </div>
+                            <span class="text-sm font-mono text-gray-500">3 days</span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-blue-400">Series: Episode 4 Review</p>
+                                <p class="text-sm text-gray-400">Director and client review session</p>
+                            </div>
+                            <span class="text-sm font-mono text-gray-500">5 days</span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-green-400">Movie: Animatic Approval</p>
+                                <p class="text-sm text-gray-400">Full movie animatic presentation</p>
+                            </div>
+                            <span class="text-sm font-mono text-gray-500">8 days</span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-yellow-400">Short Film: Audio Mix</p>
+                                <p class="text-sm text-gray-400">Final sound design and music</p>
+                            </div>
+                            <span class="text-sm font-mono text-gray-500">12 days</span>
+                        </div>
+                    </div>
+                    
+                    <div class="timeline-item">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-blue-400">Series: Episode 5 Animation Start</p>
+                                <p class="text-sm text-gray-400">Begin rough animation phase</p>
+                            </div>
+                            <span class="text-sm font-mono text-gray-500">14 days</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Production Timeline Gantt -->
+        <div class="max-w-7xl mx-auto mb-8">
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-bold text-white mb-4">Production Timeline Overview</h3>
+                <div class="relative" style="height: 200px;">
+                    <!-- Timeline Header -->
+                    <div class="absolute top-0 left-0 right-0 h-8 border-b border-gray-700 flex items-center">
+                        <div class="grid grid-cols-12 w-full text-xs text-gray-400">
+                            <div class="text-center">Jan</div>
+                            <div class="text-center">Feb</div>
+                            <div class="text-center">Mar</div>
+                            <div class="text-center">Apr</div>
+                            <div class="text-center">May</div>
+                            <div class="text-center">Jun</div>
+                            <div class="text-center">Jul</div>
+                            <div class="text-center">Aug</div>
+                            <div class="text-center">Sep</div>
+                            <div class="text-center">Oct</div>
+                            <div class="text-center">Nov</div>
+                            <div class="text-center">Dec</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Project Bars -->
+                    <div class="gantt-bar bg-blue-500" style="top: 50px; left: 0%; width: 50%;">
+                        Series: Production
+                    </div>
+                    <div class="gantt-bar bg-green-500" style="top: 90px; left: 8%; width: 25%;">
+                        Short Film: Post-Prod
+                    </div>
+                    <div class="gantt-bar bg-yellow-500" style="top: 130px; left: 0%; width: 83%;">
+                        Feature Film: Full Production
+                    </div>
+                    
+                    <!-- Current Date Marker -->
+                    <div class="absolute top-8 bottom-0 border-l-2 border-red-500" style="left: 25%;">
+                        <span class="absolute -top-6 -left-8 text-xs text-red-400 font-semibold">Today</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget and Risk Analysis -->
+        <div class="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Combined Budget Status -->
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-bold text-white mb-4">Combined Budget Analysis</h3>
+                <canvas id="budgetChart"></canvas>
+                <div class="mt-4 grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p class="text-2xl font-bold text-blue-400">$5.8M</p>
+                        <p class="text-xs text-gray-400">Total Spent</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-green-400">$24.7M</p>
+                        <p class="text-xs text-gray-400">Remaining</p>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-yellow-400">19%</p>
+                        <p class="text-xs text-gray-400">Budget Used</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Risk Matrix -->
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-xl font-bold text-white mb-4">Risk Assessment Matrix</h3>
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between p-3 bg-red-900/20 rounded-lg border border-red-800">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">🚨</span>
+                            <div>
+                                <p class="font-semibold text-red-400">Short Film: Render Farm Capacity</p>
+                                <p class="text-xs text-gray-400">May not meet deadline without additional resources</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono text-red-400">HIGH</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-yellow-900/20 rounded-lg border border-yellow-800">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">⚠️</span>
+                            <div>
+                                <p class="font-semibold text-yellow-400">Series: Voice Actor Scheduling</p>
+                                <p class="text-xs text-gray-400">Conflicts with Episode 7-9 recording sessions</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono text-yellow-400">MED</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-yellow-900/20 rounded-lg border border-yellow-800">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">⚠️</span>
+                            <div>
+                                <p class="font-semibold text-yellow-400">Movie: Storyboard Team Overlap</p>
+                                <p class="text-xs text-gray-400">Resource conflict with Series production in Q3</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono text-yellow-400">MED</span>
+                    </div>
+                    
+                    <div class="flex items-center justify-between p-3 bg-green-900/20 rounded-lg border border-green-800">
+                        <div class="flex items-center gap-3">
+                            <span class="text-2xl">ℹ️</span>
+                            <div>
+                                <p class="font-semibold text-green-400">All Projects: Software License Renewal</p>
+                                <p class="text-xs text-gray-400">Annual licenses expire in 2 months</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono text-green-400">LOW</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize dashboard
+        function init() {
+            updateTime();
+            setInterval(updateTime, 1000);
+            
+            createBudgetChart();
+            checkAlerts();
+            animateProgressBars();
+        }
+
+        // Update current time
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = 
+                now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+
+        // Create budget chart
+        function createBudgetChart() {
+            const ctx = document.getElementById('budgetChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Series', 'Short Film', 'Feature Film', 'Remaining'],
+                    datasets: [{
+                        data: [2100000, 485000, 3200000, 24715000],
+                        backgroundColor: [
+                            'rgba(59, 130, 246, 0.8)',
+                            'rgba(16, 185, 129, 0.8)',
+                            'rgba(245, 158, 11, 0.8)',
+                            'rgba(107, 114, 128, 0.3)'
+                        ],
+                        borderColor: [
+                            'rgba(59, 130, 246, 1)',
+                            'rgba(16, 185, 129, 1)',
+                            'rgba(245, 158, 11, 1)',
+                            'rgba(107, 114, 128, 0.5)'
+                        ],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#e0e0e0',
+                                padding: 15,
+                                font: {
+                                    size: 12
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Check for alerts
+        function checkAlerts() {
+            const alerts = [
+                {
+                    type: 'critical',
+                    message: 'Short Film: Only 3 days until final render deadline - 95% render farm capacity'
+                },
+                {
+                    type: 'warning',
+                    message: 'Storyboard team at 95% capacity - may impact upcoming Movie milestones'
+                }
+            ];
+
+            if (alerts.length > 0) {
+                document.getElementById('alertsSection').style.display = 'block';
+                const alertsList = document.getElementById('alertsList');
+                alertsList.innerHTML = alerts.map(alert => `
+                    <div class="text-sm ${alert.type === 'critical' ? 'text-red-400' : 'text-yellow-400'}">
+                        • ${alert.message}
+                    </div>
+                `).join('');
+            }
+        }
+
+        // Animate progress bars on load
+        function animateProgressBars() {
+            const bars = document.querySelectorAll('.capacity-bar');
+            bars.forEach((bar, index) => {
+                const width = bar.style.width;
+                bar.style.width = '0%';
+                setTimeout(() => {
+                    bar.style.width = width;
+                }, index * 100);
+            });
+        }
+
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
