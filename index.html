@@ -29,32 +29,6 @@
         .capacity-bar {
             transition: all 0.5s ease;
         }
-        .timeline-item {
-            position: relative;
-            padding-left: 30px;
-        }
-        .timeline-item::before {
-            content: '';
-            position: absolute;
-            left: 8px;
-            top: 8px;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #3b82f6;
-        }
-        .timeline-item::after {
-            content: '';
-            position: absolute;
-            left: 11px;
-            top: 16px;
-            width: 2px;
-            height: calc(100% - 8px);
-            background: #cbd5e1;
-        }
-        .timeline-item:last-child::after {
-            display: none;
-        }
         .status-indicator {
             width: 10px;
             height: 10px;
